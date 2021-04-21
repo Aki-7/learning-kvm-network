@@ -86,6 +86,106 @@ VM14_BR3_ADDRESS_M="192.168.103.14/24"
 VM14_BR3_ADDRESS="192.168.103.14"
 VM14_BR3_MAC="52:54:00:00:14:03"
 
+VM11_NETWORK_CONFIG = f"""# custom network config
+version: 2
+ethernets:
+  eth0:
+    match:
+      macaddress: "{VM11_BR1_MAC}"
+    set-name: eth0
+    addresses:
+    - {VM11_BR1_ADDRESS_M}
+    dhcp4: false
+    nameservers:
+      addresses:
+      - {DNS_ADDRESS}
+    routes:
+    - to: {BR2_SUBNET}
+      via: {VM12_BR1_ADDRESS}
+    - to: {BR3_SUBNET}
+      via: {VM12_BR1_ADDRESS}
+    - to: 0.0.0.0/0
+      via: {BR1_ADDRESS}
+"""
+
+VM12_NETWORK_CONFIG = f"""# custom network config
+version: 2
+ethernets:
+  eth0:
+    match:
+      macaddress: "{VM12_BR1_MAC}"
+    set-name: eth0
+    addresses:
+    - {VM12_BR1_ADDRESS_M}
+    dhcp4: false
+    nameservers:
+      addresses:
+      - {DNS_ADDRESS}
+  eth1:
+    match:
+      macaddress: "{VM12_BR2_MAC}"
+    set-name: eth1
+    addresses:
+    - {VM12_BR2_ADDRESS_M}
+    dhcp4: false
+    nameservers:
+      addresses:
+      - {DNS_ADDRESS}
+    routes:
+    - to: 0.0.0.0/0
+      via: {BR2_ADDRESS}
+"""
+
+VM13_NETWORK_CONFIG = f"""# custom network config
+version: 2
+ethernets:
+  eth0:
+    match:
+      macaddress: "{VM13_BR2_MAC}"
+    set-name: eth0
+    addresses:
+    - {VM13_BR2_ADDRESS_M}
+    dhcp4: false
+    nameservers:
+      addresses:
+      - {DNS_ADDRESS}
+    routes:
+    - to: 0.0.0.0/0
+      via: {BR2_ADDRESS}
+  eth1:
+    match:
+      macaddress: "{VM13_BR3_MAC}"
+    set-name: eth1
+    addresses:
+    - {VM13_BR3_ADDRESS_M}
+    dhcp4: false
+    nameservers:
+      addresses:
+      - {DNS_ADDRESS}
+"""
+
+VM14_NETWORK_CONFIG = f"""# custom network config
+version: 2
+ethernets:
+  eth0:
+    match:
+      macaddress: "{VM14_BR3_MAC}"
+    set-name: eth0
+    addresses:
+    - {VM14_BR3_ADDRESS_M}
+    dhcp4: false
+    nameservers:
+      addresses:
+      - {DNS_ADDRESS}
+    routes:
+    - to: {BR1_SUBNET}
+      via: {VM13_BR3_ADDRESS}
+    - to: {BR2_SUBNET}
+      via: {VM13_BR3_ADDRESS}
+    - to: 0.0.0.0/0
+      via: {BR3_ADDRESS}
+"""
+
 def setup():
     # bridges
     br1.setup(BR1_ADDRESS_M)
@@ -105,13 +205,7 @@ def setup():
         nameservers=[DNS_ADDRESS],
         package_update=True
     )
-    network_config11.create([{
-        "name": "eth0",
-        "mac": VM11_BR1_MAC,
-        "address": VM11_BR1_ADDRESS_M,
-        "gateway": BR1_ADDRESS,
-        "dns_server": DNS_ADDRESS
-    }])
+    network_config11.create(VM11_NETWORK_CONFIG)
     user_data_disk11.create_with_cloud_localds(
         user_data=user_data11,
         network_config=network_config11
@@ -128,19 +222,7 @@ def setup():
         pubkey=PUB_KEY,
         nameservers=[DNS_ADDRESS]
     )
-    network_config12.create([{
-        "name": "eth0",
-        "mac": VM12_BR1_MAC,
-        "address": VM12_BR1_ADDRESS_M,
-        "gateway": BR1_ADDRESS,
-        "dns_server": DNS_ADDRESS
-    },{
-        "name": "eth1",
-        "mac": VM12_BR2_MAC,
-        "address": VM12_BR2_ADDRESS_M,
-        "gateway": BR2_ADDRESS,
-        "dns_server": DNS_ADDRESS
-    }])
+    network_config12.create(VM12_NETWORK_CONFIG)
     user_data_disk12.create_with_cloud_localds(
         user_data=user_data12,
         network_config=network_config12
@@ -157,19 +239,7 @@ def setup():
         pubkey=PUB_KEY,
         nameservers=[DNS_ADDRESS]
     )
-    network_config13.create([{
-        "name": "eth0",
-        "mac": VM13_BR2_MAC,
-        "address": VM13_BR2_ADDRESS_M,
-        "gateway": BR2_ADDRESS,
-        "dns_server": DNS_ADDRESS
-    },{
-        "name": "eth1",
-        "mac": VM13_BR3_MAC,
-        "address": VM13_BR3_ADDRESS_M,
-        "gateway": BR3_ADDRESS,
-        "dns_server": DNS_ADDRESS
-    }])
+    network_config13.create(VM13_NETWORK_CONFIG)
     user_data_disk13.create_with_cloud_localds(
         user_data=user_data13,
         network_config=network_config13
@@ -186,13 +256,7 @@ def setup():
         pubkey=PUB_KEY,
         nameservers=[DNS_ADDRESS]
     )
-    network_config14.create([{
-        "name": "eth0",
-        "mac": VM14_BR3_MAC,
-        "address": VM14_BR3_ADDRESS_M,
-        "gateway": BR3_ADDRESS,
-        "dns_server": DNS_ADDRESS
-    }])
+    network_config14.create(VM14_NETWORK_CONFIG)
     user_data_disk14.create_with_cloud_localds(
         user_data=user_data14,
         network_config=network_config14
@@ -258,6 +322,38 @@ def check():
     while(vm11.ping() == False or vm12.ping() == False or vm13.ping() == False or vm14.ping() == False):
         time.sleep(1)
 
+def start():
+    vm12.shell(" && ".join([
+        "sudo apt update",
+        "sudo apt install libc-ares2",
+        "sudo wget https://github.com/FRRouting/frr/releases/download/frr-6.0/frr_6.0-1.ubuntu18.04+1_amd64.deb -O /frr.deb",
+        "sudo dpkg -i /frr.deb",
+        "sudo sed -i -e 's/=no/=yes/g' /etc/frr/daemons",
+        "sudo /usr/lib/frr/frr restart",
+        " ".join([
+            'sudo vtysh -c "conf t"',
+            '-c "router bgp 100"',
+            '-c "bgp router-id 1.1.1.1"',
+            f'-c "neighbor {VM13_BR2_ADDRESS} remote-as 200"',
+            f'-c "network {BR1_SUBNET}"'
+        ])
+    ]))
+    vm13.shell(" && ".join([
+        "sudo apt update",
+        "sudo apt install libc-ares2",
+        "sudo wget https://github.com/FRRouting/frr/releases/download/frr-6.0/frr_6.0-1.ubuntu18.04+1_amd64.deb -O /frr.deb",
+        "sudo dpkg -i /frr.deb",
+        "sudo sed -i -e 's/=no/=yes/g' /etc/frr/daemons",
+        "sudo /usr/lib/frr/frr restart",
+        " ".join([
+            'sudo vtysh -c "conf t"',
+            '-c "router bgp 200"',
+            '-c "bgp router-id 2.2.2.2"',
+            f'-c "neighbor {VM12_BR2_ADDRESS} remote-as 100"',
+            f'-c "network {BR3_SUBNET}"'
+        ])
+    ]))
+
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("mode", choices=["setup", "teardown"])
@@ -269,6 +365,7 @@ if __name__ == "__main__":
         try:
             setup()
             check()
+            start()
             print("Successfully done")
         except Exception as e:
             print("Error detected. teardown.")

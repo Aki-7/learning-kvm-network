@@ -1,4 +1,4 @@
-import subprocess
+import subprocess, sys
 from paramiko import SSHClient, AutoAddPolicy, Ed25519Key
 from paramiko.ssh_exception import NoValidConnectionsError 
 from pathlib import Path
@@ -80,7 +80,27 @@ class VM:
                 username=self.user
             )
             print(f"{self.name} is started.", flush=True)
+            client.close()
             return True
         except NoValidConnectionsError as e:
             print(e, flush=True)
             return False
+    
+    def shell(self, cmd: str):
+        if self.accessible == False:
+            print("No access info...")
+            return False
+        
+        pkey_file = self.pkey.open()
+        client = SSHClient()
+        client.set_missing_host_key_policy(AutoAddPolicy())
+        client.connect(
+            hostname=self.host,
+            pkey=Ed25519Key.from_private_key(pkey_file, self.passphrase),
+            passphrase=self.passphrase,
+            username=self.user
+        )
+        _, _, stderr = client.exec_command(cmd)
+        for line in stderr:
+            print(line, file=sys.stderr)
+        client.close()
