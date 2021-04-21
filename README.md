@@ -34,7 +34,7 @@ virtinst/focal-updates,focal-updates,now 1:2.2.1-3ubuntu2.1 all
 cloud-image-utils/focal,focal,now 0.31-7-gd99b2d76-0ubuntu1 all
 ```
 
-### Install Ubuntu clound image
+### Download Ubuntu clound image
 
 ```sh
 $ cd img
