@@ -4,6 +4,7 @@ from lib.variables import project_root, working_dir
 from lib.bridge import Bridge
 from lib.disk import Disk
 from lib.nat_rule import NatRule
+from lib.direct_rule import DirectRule
 from lib.user_data import UserData
 from lib.network_config import NetworkConfig
 from lib.vm import VM
@@ -20,23 +21,29 @@ PRIV_KEY_PASS=""
 DNS_ADDRESS="192.168.0.1"
 
 # bridges
+br0 = Bridge("br0")
+BR0_ADDRESS_M = "192.168.100.1/24"
+BR0_ADDRESS = "192.168.100.1"
+BR0_SUBNET = "192.168.100.0/24"
+br0_nat_rule = NatRule(br0)
+
 br1 = Bridge("br1")
 BR1_ADDRESS_M="192.168.101.1/24"
 BR1_ADDRESS="192.168.101.1"
 BR1_SUBNET="192.168.101.0/24"
-br1_nat_rule = NatRule(br1)
+br1_direct_rule = DirectRule(br1)
 
 br2 = Bridge("br2")
 BR2_ADDRESS_M="192.168.102.1/24"
 BR2_ADDRESS="192.168.102.1"
 BR2_SUBNET="192.168.102.0/24"
-br2_nat_rule = NatRule(br2)
+br2_direct_rule = DirectRule(br2)
 
 br3 = Bridge("br3")
 BR3_ADDRESS_M="192.168.103.1/24"
 BR3_ADDRESS="192.168.103.1"
 BR3_SUBNET="192.168.103.0/24"
-br3_nat_rule = NatRule(br3)
+br3_direct_rule = DirectRule(br3)
 
 # disks
 user_data11 = UserData(path=working_dir/"user-data-11")
@@ -61,11 +68,17 @@ disk14 = Disk(path=working_dir/"vm14.img")
 
 # vms
 vm11 = VM("c11")
+VM11_BR0_ADDRESS_M="192.168.100.11/24"
+VM11_BR0_ADDRESS="192.168.100.11"
+VM11_BR0_MAC="52:54:00:00:11:00"
 VM11_BR1_ADDRESS_M="192.168.101.11/24"
 VM11_BR1_ADDRESS="192.168.101.11"
 VM11_BR1_MAC="52:54:00:00:11:01"
 
 vm12 = VM("r12")
+VM12_BR0_ADDRESS_M="192.168.100.12/24"
+VM12_BR0_ADDRESS="192.168.100.12"
+VM12_BR0_MAC="52:54:00:00:12:00"
 VM12_BR1_ADDRESS_M="192.168.101.12/24"
 VM12_BR1_ADDRESS="192.168.101.12"
 VM12_BR1_MAC="52:54:00:00:12:01"
@@ -74,6 +87,9 @@ VM12_BR2_ADDRESS="192.168.102.12"
 VM12_BR2_MAC="52:54:00:00:12:02"
 
 vm13 = VM("r13")
+VM13_BR0_ADDRESS_M="192.168.100.13/24"
+VM13_BR0_ADDRESS="192.168.100.13"
+VM13_BR0_MAC="52:54:00:00:13:00"
 VM13_BR2_ADDRESS_M="192.168.102.13/24"
 VM13_BR2_ADDRESS="192.168.102.13"
 VM13_BR2_MAC="52:54:00:00:13:02"
@@ -82,6 +98,9 @@ VM13_BR3_ADDRESS="192.168.103.13"
 VM13_BR3_MAC="52:54:00:00:13:03"
 
 vm14 = VM("c14")
+VM14_BR0_ADDRESS_M="192.168.100.14/24"
+VM14_BR0_ADDRESS="192.168.100.14"
+VM14_BR0_MAC="52:54:00:00:14:00"
 VM14_BR3_ADDRESS_M="192.168.103.14/24"
 VM14_BR3_ADDRESS="192.168.103.14"
 VM14_BR3_MAC="52:54:00:00:14:03"
@@ -91,8 +110,22 @@ version: 2
 ethernets:
   eth0:
     match:
-      macaddress: "{VM11_BR1_MAC}"
+      macaddress: "{VM11_BR0_MAC}"
     set-name: eth0
+    addresses:
+    - {VM11_BR0_ADDRESS_M}
+    dhcp4: false
+    nameservers:
+      addresses:
+      - {DNS_ADDRESS}
+    routes:
+    - to: 0.0.0.0/0
+      via: {BR0_ADDRESS}
+
+  eth1:
+    match:
+      macaddress: "{VM11_BR1_MAC}"
+    set-name: eth1
     addresses:
     - {VM11_BR1_ADDRESS_M}
     dhcp4: false
@@ -104,8 +137,6 @@ ethernets:
       via: {VM12_BR1_ADDRESS}
     - to: {BR3_SUBNET}
       via: {VM12_BR1_ADDRESS}
-    - to: 0.0.0.0/0
-      via: {BR1_ADDRESS}
 """
 
 VM12_NETWORK_CONFIG = f"""# custom network config
@@ -113,27 +144,39 @@ version: 2
 ethernets:
   eth0:
     match:
-      macaddress: "{VM12_BR1_MAC}"
+      macaddress: "{VM12_BR0_MAC}"
     set-name: eth0
     addresses:
-    - {VM12_BR1_ADDRESS_M}
-    dhcp4: false
-    nameservers:
-      addresses:
-      - {DNS_ADDRESS}
-  eth1:
-    match:
-      macaddress: "{VM12_BR2_MAC}"
-    set-name: eth1
-    addresses:
-    - {VM12_BR2_ADDRESS_M}
+    - {VM12_BR0_ADDRESS_M}
     dhcp4: false
     nameservers:
       addresses:
       - {DNS_ADDRESS}
     routes:
     - to: 0.0.0.0/0
-      via: {BR2_ADDRESS}
+      via: {BR0_ADDRESS}
+
+  eth1:
+    match:
+      macaddress: "{VM12_BR1_MAC}"
+    set-name: eth1
+    addresses:
+    - {VM12_BR1_ADDRESS_M}
+    dhcp4: false
+    nameservers:
+      addresses:
+      - {DNS_ADDRESS}
+
+  eth2:
+    match:
+      macaddress: "{VM12_BR2_MAC}"
+    set-name: eth2
+    addresses:
+    - {VM12_BR2_ADDRESS_M}
+    dhcp4: false
+    nameservers:
+      addresses:
+      - {DNS_ADDRESS}
 """
 
 VM13_NETWORK_CONFIG = f"""# custom network config
@@ -141,21 +184,33 @@ version: 2
 ethernets:
   eth0:
     match:
-      macaddress: "{VM13_BR2_MAC}"
+      macaddress: "{VM13_BR0_MAC}"
     set-name: eth0
     addresses:
-    - {VM13_BR2_ADDRESS_M}
+    - {VM13_BR0_ADDRESS_M}
     dhcp4: false
     nameservers:
       addresses:
       - {DNS_ADDRESS}
     routes:
     - to: 0.0.0.0/0
-      via: {BR2_ADDRESS}
+      via: {BR0_ADDRESS}
+
   eth1:
     match:
-      macaddress: "{VM13_BR3_MAC}"
+      macaddress: "{VM13_BR2_MAC}"
     set-name: eth1
+    addresses:
+    - {VM13_BR2_ADDRESS_M}
+    dhcp4: false
+    nameservers:
+      addresses:
+      - {DNS_ADDRESS}
+
+  eth2:
+    match:
+      macaddress: "{VM13_BR3_MAC}"
+    set-name: eth2
     addresses:
     - {VM13_BR3_ADDRESS_M}
     dhcp4: false
@@ -169,8 +224,22 @@ version: 2
 ethernets:
   eth0:
     match:
-      macaddress: "{VM14_BR3_MAC}"
+      macaddress: "{VM14_BR0_MAC}"
     set-name: eth0
+    addresses:
+    - {VM14_BR0_ADDRESS_M}
+    dhcp4: false
+    nameservers:
+      addresses:
+      - {DNS_ADDRESS}
+    routes:
+    - to: 0.0.0.0/0
+      via: {BR0_ADDRESS}
+
+  eth1:
+    match:
+      macaddress: "{VM14_BR3_MAC}"
+    set-name: eth1
     addresses:
     - {VM14_BR3_ADDRESS_M}
     dhcp4: false
@@ -182,20 +251,21 @@ ethernets:
       via: {VM13_BR3_ADDRESS}
     - to: {BR2_SUBNET}
       via: {VM13_BR3_ADDRESS}
-    - to: 0.0.0.0/0
-      via: {BR3_ADDRESS}
 """
 
 def setup():
     # bridges
+    br0.setup(BR0_ADDRESS_M)
+    br0_nat_rule.create(subnet=BR0_SUBNET)
+
     br1.setup(BR1_ADDRESS_M)
-    br1_nat_rule.create(subnet=BR1_SUBNET)
+    br1_direct_rule.create()
 
     br2.setup(BR2_ADDRESS_M)
-    br2_nat_rule.create(subnet=BR2_SUBNET)
+    br2_direct_rule.create()
 
     br3.setup(BR3_ADDRESS_M)
-    br3_nat_rule.create(subnet=BR3_SUBNET)
+    br3_direct_rule.create()
 
     # vm 11
     disk11.create_from_base_img(base_img, size=10)
@@ -211,7 +281,7 @@ def setup():
         network_config=network_config11
     )
     vm11.install(
-        bridges=[(br1, VM11_BR1_MAC)],
+        bridges=[(br0, VM11_BR0_MAC), (br1, VM11_BR1_MAC)],
         disks=[(user_data_disk11, "device=cdrom"), (disk11, "")]
     )
 
@@ -228,7 +298,7 @@ def setup():
         network_config=network_config12
     )
     vm12.install(
-        bridges=[(br1, VM12_BR1_MAC), (br2, VM12_BR2_MAC)],
+        bridges=[(br0, VM12_BR0_MAC), (br1, VM12_BR1_MAC), (br2, VM12_BR2_MAC)],
         disks=[(user_data_disk12, "device=cdrom"), (disk12, "")]
     )
 
@@ -245,7 +315,7 @@ def setup():
         network_config=network_config13
     )
     vm13.install(
-        bridges=[(br2, VM13_BR2_MAC), (br3, VM13_BR3_MAC)],
+        bridges=[(br0, VM13_BR0_MAC), (br2, VM13_BR2_MAC), (br3, VM13_BR3_MAC)],
         disks=[(user_data_disk13, "device=cdrom"), (disk13, "")]
     )
 
@@ -262,7 +332,7 @@ def setup():
         network_config=network_config14
     )
     vm14.install(
-        bridges=[(br3, VM14_BR3_MAC)],
+        bridges=[(br0, VM14_BR0_MAC), (br3, VM14_BR3_MAC)],
         disks=[(user_data_disk14, "device=cdrom"), (disk14, "")]
     )
 
@@ -287,34 +357,36 @@ def teardown():
     disk12.delete()
     disk13.delete()
     disk14.delete()
-    br3_nat_rule.delete()
+    br3_direct_rule.delete()
     br3.teardown()
-    br2_nat_rule.delete()
+    br2_direct_rule.delete()
     br2.teardown()
-    br1_nat_rule.delete()
+    br1_direct_rule.delete()
     br1.teardown()
+    br0_nat_rule.delete()
+    br0.teardown()
 
 def check():
     vm11.set_access_info(
-        host=VM11_BR1_ADDRESS,
+        host=VM11_BR0_ADDRESS,
         pkey=PRIV_KEY,
         passphrase=PRIV_KEY_PASS,
         user="ubuntu"
     )
     vm12.set_access_info(
-        host=VM12_BR1_ADDRESS,
+        host=VM12_BR0_ADDRESS,
         pkey=PRIV_KEY,
         passphrase=PRIV_KEY_PASS,
         user="ubuntu"
     )
     vm13.set_access_info(
-        host=VM13_BR2_ADDRESS,
+        host=VM13_BR0_ADDRESS,
         pkey=PRIV_KEY,
         passphrase=PRIV_KEY_PASS,
         user="ubuntu"
     )
     vm14.set_access_info(
-        host=VM14_BR3_ADDRESS,
+        host=VM14_BR0_ADDRESS,
         pkey=PRIV_KEY,
         passphrase=PRIV_KEY_PASS,
         user="ubuntu"
@@ -336,7 +408,9 @@ def start():
             '-c "bgp router-id 1.1.1.1"',
             f'-c "neighbor {VM13_BR2_ADDRESS} remote-as 200"',
             f'-c "network {BR1_SUBNET}"'
-        ])
+        ]),
+        'sudo vtysh -c "copy running-config startup-config"',
+        'sudo sh -c "echo 1 > /proc/sys/net/ipv4/ip_forward"'
     ]))
     vm13.shell(" && ".join([
         "sudo apt update",
@@ -351,7 +425,9 @@ def start():
             '-c "bgp router-id 2.2.2.2"',
             f'-c "neighbor {VM12_BR2_ADDRESS} remote-as 100"',
             f'-c "network {BR3_SUBNET}"'
-        ])
+        ]),
+        'sudo vtysh -c "copy running-config startup-config"',
+        'sudo sh -c "echo 1 > /proc/sys/net/ipv4/ip_forward"'
     ]))
 
 if __name__ == "__main__":
@@ -368,7 +444,7 @@ if __name__ == "__main__":
             start()
             print("Successfully done")
         except Exception as e:
-            print("Error detected. teardown.")
+            print("Error detected. *** teardown ***")
             teardown()
             raise e
     elif args.mode == "teardown":
